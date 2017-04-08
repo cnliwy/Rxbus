@@ -17,7 +17,9 @@ import rx.subjects.Subject;
  */
 
 public class RxBus {
+    // 已注册的观察者
     private HashMap<Object,List<Subject>> maps = new HashMap<Object,List<Subject>>();
+    // 待发送的消息缓存
     private HashMap<Object,Object> data = new HashMap<Object,Object>();
     private static RxBus instance;
 
@@ -92,7 +94,7 @@ public class RxBus {
         if (subjects != null && !subjects.isEmpty()){
             for (Subject subject : subjects){
                 subject.onNext(o);
-                // 发送消息后检查该tag下的缓存
+                // 发送消息后检查该tag下的缓存并移除
                 if (data.get(tag) != null){
                     data.remove(tag);
                 }
