@@ -16,12 +16,13 @@ import rx.subjects.Subject;
  */
 
 public class RxBus {
-    // 已注册的观察者
+    // 一个tag可拥有多个Subject对象
     private HashMap<Object,List<Subject>> maps = new HashMap<Object,List<Subject>>();
     // 一个tag只能拥有一个Subject对象
     private HashMap<Object,Subject> singleMaps = new HashMap<Object,Subject>();
     // 待发送的消息缓存
     private HashMap<Object,Object> data = new HashMap<Object,Object>();
+
     private static RxBus instance;
 
     // 获取单例对象
