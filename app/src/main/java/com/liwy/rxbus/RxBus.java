@@ -4,11 +4,10 @@ import android.support.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 
-
 import rx.Observable;
+import rx.functions.Action1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
@@ -19,6 +18,8 @@ import rx.subjects.Subject;
 public class RxBus {
     // 已注册的观察者
     private HashMap<Object,List<Subject>> maps = new HashMap<Object,List<Subject>>();
+    // 一个tag只能拥有一个Subject对象
+    private HashMap<Object,Subject> singleMaps = new HashMap<Object,Subject>();
     // 待发送的消息缓存
     private HashMap<Object,Object> data = new HashMap<Object,Object>();
     private static RxBus instance;
@@ -46,6 +47,98 @@ public class RxBus {
         subjects.add(subject);
         return subject;
     }
+
+    /**
+     * 根据传入数据对象注册事件
+     * @param obj
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> register(@NonNull Object  obj){
+        String tag = obj.getClass().getName();
+        Class clazz = obj.getClass();
+        return register(tag,clazz);
+    }
+
+    /**
+     * 根据传入数据对象注册事件并设置回调
+     * @param obj
+     * @param callback
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> register(@NonNull Object  obj,@NonNull final PostCallback<T> callback){
+        Observable<T> subject = register(obj);
+        makeCallback(subject,callback);
+        getData(obj.getClass().getName());
+        return subject;
+    }
+
+    /**
+     * 给事件源设置事件回调
+     * @param subject
+     * @param callback
+     * @param <T>
+     */
+    private <T> void makeCallback(Observable<T> subject, final PostCallback<T> callback){
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+    }
+
+
+    /**
+     * 注册回调，并主动拉取历史缓存
+     * @param tag
+     * @param clazz
+     * @param callback
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, @NonNull final PostCallback<T> callback){
+        PublishSubject<T> subject = (PublishSubject<T>) register(tag,clazz);
+        makeCallback(subject,callback);
+        getData(tag);
+        return subject;
+    }
+    /**
+     * 一个tag只有一个subject对象
+     * @param tag
+     * @param clazz
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz){
+        PublishSubject<T> subject = (PublishSubject<T>) singleMaps.get(tag);
+        if (subject == null)subject = PublishSubject.<T>create();
+        singleMaps.put(tag,subject);
+        return subject;
+    }
+
+    public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, @NonNull final PostCallback callback){
+        PublishSubject<T> subject = (PublishSubject<T>) registerSingle(tag,clazz);
+         makeCallback(subject,callback);
+        getData(tag);
+        return subject;
+    }
+
+    public <T> Observable<T> registerSingle(@NonNull Object obj){
+        String tag = obj.getClass().getName();
+        Class clazz = obj.getClass();
+        return registerSingle(tag,clazz);
+    }
+
+    public <T> Observable<T> registerSingle(@NonNull Object obj, @NonNull final PostCallback callback){
+        PublishSubject<T> subject = (PublishSubject<T>)registerSingle(obj);
+        makeCallback(subject,callback);
+        getData(obj.getClass().getName());
+        return subject;
+    }
+
+
     //取消注册
     public void unregister(@NonNull Object tag, @NonNull Observable observable){
         List<Subject> subjects = maps.get(tag);
@@ -55,9 +148,12 @@ public class RxBus {
                 maps.remove(tag);
             }
         }
+        Subject subject = singleMaps.get(tag);
+        if (subject == null)singleMaps.remove(tag);
     }
-    //延迟数据拉取
-    public void getData(@NonNull Object tag){
+
+    //拉取data缓存里的延迟数据
+    private void getData(@NonNull Object tag){
         Object obj = data.get(tag);
         if (obj != null){
             post(tag,obj);
@@ -67,15 +163,13 @@ public class RxBus {
 
     // 发送消息至已注册的事件,tag就是该数据的对象名称
     public void post(@NonNull Object o){
-        post(o.getClass().getSimpleName(), o);
+        post(o.getClass().getName(), o);
     }
-    // 发送消息至已注册的事件,tag就是该数据的对象名称，如果为注册则缓存
-    public void postWithCache(@NonNull Object o){
-        postWithCache(o.getClass().getSimpleName(), o);
-    }
+
 
     // 给同属同一tag的事件群发消息
     public void post(@NonNull Object tag, @NonNull Object o){
+        // 发送多个
         List<Subject> subjects = maps.get(tag);
         if (subjects != null && !subjects.isEmpty()){
             for (Subject subject : subjects){
@@ -86,12 +180,22 @@ public class RxBus {
                 }
             }
         }
+        // 发送单例
+        postSingle(tag,o);
+    }
+
+    // 发送消息至已注册的事件,tag就是该数据的对象名称，如果为注册则缓存
+    public void postDelayed(@NonNull Object o){
+        postDelayed(o.getClass().getName(), o);
     }
 
     // 给同属同一tag的事件群发消息(如果该tag未注册，则缓存)
-    public void postWithCache(@NonNull Object tag, @NonNull Object o){
+    public void postDelayed(@NonNull Object tag, @NonNull Object o){
         List<Subject> subjects = maps.get(tag);
+        Subject singleSubject = singleMaps.get(tag);
+        boolean hasValue = false;
         if (subjects != null && !subjects.isEmpty()){
+            hasValue = true;
             for (Subject subject : subjects){
                 subject.onNext(o);
                 // 发送消息后检查该tag下的缓存并移除
@@ -99,19 +203,20 @@ public class RxBus {
                     data.remove(tag);
                 }
             }
-        }else{
+        }
+        if (singleSubject != null){
+            hasValue = true;
+            singleSubject.onNext(o);
+        }
+
+        if (!hasValue){
             // 如果尚不存在此观察者则将消息存入data缓存，等待观察者拉取
             data.put(tag, o);
         }
     }
 
-    //给所有的发送注册事件发送消息(前提要保证所有观察者所注册的接收对象是一致的)
-    public void postAll(@NonNull Object o){
-        if (maps != null){
-            // 遍历整个maps
-            for (Object key : maps.entrySet()){
-                post(key,o);
-            }
-        }
+    private void postSingle(@NonNull Object tag, @NonNull Object o){
+        Subject subject = singleMaps.get(tag);
+        if (subject != null)subject.onNext(o);
     }
 }

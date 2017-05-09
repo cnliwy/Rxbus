@@ -1,4 +1,4 @@
-package com.liwy.rxbus;
+package com.liwy.rxbus.demo;
 
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
@@ -7,15 +7,17 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.liwy.rxbus.R;
+import com.liwy.rxbus.RxBus;
+
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
 
-import static android.R.attr.tag;
-import static com.liwy.rxbus.RxbusActivity.rxbusTag;
+import static com.liwy.rxbus.demo.TestService.EVENT_SERVICE;
 
 public class MainActivity extends AppCompatActivity {
-    public static final String mainTag = "main";
+    public static final String EVENT_MAIN = "main";
     Observable<String> observableMain;
     private TextView tvContent;
     private Button delayBtn;
@@ -29,8 +31,11 @@ public class MainActivity extends AppCompatActivity {
         delayBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // 给TestService发送消息，此时尚未启动，在RxbusAccitivy里启动。
+                RxBus.getInstance().postDelayed(EVENT_SERVICE,"hello,service,i'm MainActivity");
                 // 此时rxbus观察者尚未注册，采用基于缓存的post发送
-                RxBus.getInstance().postWithCache(rxbusTag,"hello,rxbus,i'm MainActivity");
+                RxBus.getInstance().postDelayed(RxbusActivity.EVENT_RXBUS,"hello,rxbus,i'm MainActivity");
+                //启动Activity
                 Intent intent = new Intent(MainActivity.this,RxbusActivity.class);
                 startActivity(intent);
             }
@@ -40,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
     // 注册监听事件
     void initEvent(){
-        observableMain = RxBus.getInstance().register(mainTag,String.class);
+        observableMain = RxBus.getInstance().register(EVENT_MAIN,String.class);
         observableMain.observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<String>() {
             @Override
             public void call(String s) {
@@ -52,6 +57,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        RxBus.getInstance().unregister(rxbusTag,observableMain);//取消注册，否则内存泄漏
+        RxBus.getInstance().unregister(EVENT_MAIN,observableMain);//取消注册，否则内存泄漏
     }
 }
