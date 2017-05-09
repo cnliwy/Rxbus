@@ -12,11 +12,11 @@
 注册时需要获取缓存消息的请传入PostCallback回调（比如，你正在A页面，想传值给B页面，在B页面尚未创建的情况下给它发送了消息，这就需要B在注册事件源的时候传入回调以获取A发送的消息并处理）</br>
 当然了PostCallback可不仅仅是获取历史消息，PostCallback主要是用于事件的回调处理！你总不能接收了数据后啥也不干吧！</br>
 使用示例：</br>
- eventService = RxBus.getInstance().register("tag1", String.class, new PostCallback<String>() {
-            @Override
-            public void call(String s) {
-                System.out.println("data：" + s);
-            }
+ eventService = RxBus.getInstance().register("tag1", String.class, new PostCallback<String>() {</br>
+            @Override </br>
+            public void call(String s) {</br>
+                System.out.println("data：" + s); </br>
+            }</br>
         });</br>
 
 第二步：发送
