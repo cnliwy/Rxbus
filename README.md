@@ -7,30 +7,60 @@
 
 第一步：注册
 ---
+```
+注册分为两类方法：register()和registerSingle()两种方法，区别就是registerSingle是单例的，可保证全局唯一tag只有一个事件源。而register方法同一个tag可以注册多个观察者，在多处监听事件</br>
+注册方法总共两套八个：
+public <T> Observable<T> register(@NonNull Object  obj);
+public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz);
+public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallback<T> callback);
+public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
 
-注册分为两类方法：register()和registerSingle()两种方法，区别就是registerSingle是单例的，可保证全局唯一tag只有一个事件源。</br>
-注册时需要获取缓存消息的请传入PostCallback回调（比如，你正在A页面，想传值给B页面，在B页面尚未创建的情况下给它发送了消息，这就需要B在注册事件源的时候传入回调以获取A发送的消息并处理）</br>
-当然了PostCallback可不仅仅是获取历史消息，PostCallback主要是用于事件的回调处理！你总不能接收了数据后啥也不干吧！</br>
-使用示例：</br>
+public <T> Observable<T> registerSingle(@NonNull Object  obj);
+public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz);
+public <T> Observable<T> registerSingle(@NonNull Object  obj, @NonNull final PostCallback<T> callback);
+public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+1）不需要切换线程也不需要拉取离线消息的可调用下面两个方法注册
+public <T> Observable<T> register(@NonNull Object  obj);
+public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz);
+registerSingle同理，也是对应的两个方法。
+
+2）需要获取离线消息但不需要切换线程的
+public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallback<T> callback);
+注册时需要获取缓存消息的请调用有PostCallback回调的方法（比如，你正在A页面，想传值给B页面，在B页面尚未创建的情况下给它发送了消息，这就需要B在注册事件源的时候传入回调以获取A发送的消息并处理）</br>
+当然了PostCallback可不仅仅是获取历史消息，PostCallback主要是用于事件的回调处理！你总不能接收了数据后啥也不干吧！
+使用示例：
  eventService = RxBus.getInstance().register("tag1", String.class, new PostCallback<String>() {</br>
             @Override </br>
-            public void call(String s) {</br>
-                System.out.println("data：" + s); </br>
-            }</br>
-        });</br>
-
+            public void call(String s) {
+                System.out.println("data：" + s); 
+            }
+  });
+  其实设置PostCallback就相当于设置改观察者的Action1事件
+  eventService.subscribe(new Action1<String>() {
+                          @Override
+                          public void call(String s) {
+                             ...
+                          }
+   });
+ 3）如果需要自定义事件源线程和观察者线程的请调用下面这两个注册方法：
+public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+ 
+```
 第二步：发送
 ---
-意思很明确，就是要发送数据，api如下：</br>
-post(Object o);</br>
-post(Object tag, Object o);</br>
-postDelayed(Object o)</br>
-postDelayed(Object tag, Object o);</br>
-post系列和postDelayed系列的区别就是：postDelayed支持延迟发送，及当事件源不存在的情况下会存入缓存，等下该事件源注册后拉取。</br>
-使用示例：</br>
-RxBus.getInstance().postDelayed("tag1","hello,service,i'm a");</br>
-RxBus.getInstance().post("tag2","hello,service,i'm b");</br>
+````
 
+下面是发送消息的api，如下：
+post(Object o);
+post(Object tag, Object o);
+postDelayed(Object o);
+postDelayed(Object tag, Object o);
+post系列和postDelayed系列的区别就是：postDelayed支持延迟发送即离线消息，及当事件源不存在的情况下会存入缓存，等待该事件源注册后拉取。</br>
+使用示例：
+RxBus.getInstance().postDelayed("tag1","hello,service,i'm a");
+RxBus.getInstance().post("tag2","hello,service,i'm b");
+```
 第三步：取消注册:
 ---
 根据注册时候的tag取消该事件源。</br>

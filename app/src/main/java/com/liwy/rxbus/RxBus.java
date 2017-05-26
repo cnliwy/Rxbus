@@ -7,7 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 
 import rx.Observable;
+import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
@@ -16,6 +18,8 @@ import rx.subjects.Subject;
  */
 
 public class RxBus {
+    public static final int THREAD_MAIN = 1;//主线程
+    public static final int THREAD_IO = 2;// 子线程
     // 一个tag可拥有多个Subject对象
     private HashMap<Object,List<Subject>> maps = new HashMap<Object,List<Subject>>();
     // 一个tag只能拥有一个Subject对象
@@ -50,6 +54,24 @@ public class RxBus {
     }
 
     /**
+     * 注册事件，可配置事件源和观察者的线程，并设置回调
+     * @param tag           事件tag
+     * @param clazz         数据类型
+     * @param subscribeOn  事件源线程 1主线程 2子线程
+     * @param observeOn    观察者线程 1主线程 2子线程
+     * @param callback      事件回调
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
+        Observable<T> subject = register(tag,clazz);
+        subject = makeThread(subject,subscribeOn,observeOn);
+        subject = makeCallback(subject,callback);
+        getData(tag);
+        return subject;
+    }
+
+    /**
      * 根据传入数据对象注册事件
      * @param obj
      * @param <T>
@@ -68,27 +90,15 @@ public class RxBus {
      * @param <T>
      * @return
      */
-    public <T> Observable<T> register(@NonNull Object  obj,@NonNull final PostCallback<T> callback){
+    public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallback<T> callback){
         Observable<T> subject = register(obj);
         makeCallback(subject,callback);
         getData(obj.getClass().getName());
         return subject;
     }
 
-    /**
-     * 给事件源设置事件回调
-     * @param subject
-     * @param callback
-     * @param <T>
-     */
-    private <T> void makeCallback(Observable<T> subject, final PostCallback<T> callback){
-        subject.subscribe(new Action1<T>() {
-            @Override
-            public void call(T t) {
-                callback.call(t);
-            }
-        });
-    }
+
+
 
 
     /**
@@ -121,7 +131,7 @@ public class RxBus {
 
     public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, @NonNull final PostCallback callback){
         PublishSubject<T> subject = (PublishSubject<T>) registerSingle(tag,clazz);
-         makeCallback(subject,callback);
+        makeCallback(subject,callback);
         getData(tag);
         return subject;
     }
@@ -138,6 +148,61 @@ public class RxBus {
         getData(obj.getClass().getName());
         return subject;
     }
+    /**
+     * 注册事件，可配置事件源和观察者的线程，并设置回调
+     * @param tag           事件tag
+     * @param clazz         数据类型
+     * @param subscribeOn  事件源线程 1主线程 2子线程
+     * @param observeOn    观察者线程 1主线程 2子线程
+     * @param callback      事件回调
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
+        Observable<T> subject = register(tag,clazz);
+        subject = makeThread(subject,subscribeOn,observeOn);
+        subject = makeCallback(subject,callback);
+        getData(tag);
+        return subject;
+    }
+
+    /**
+     * 给事件源设置事件回调
+     * @param subject
+     * @param callback
+     * @param <T>
+     */
+    private <T> Observable<T> makeCallback(Observable<T> subject, final PostCallback<T> callback){
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+        return subject;
+    }
+
+    /**
+     * 设置Observable的线程
+     * @param subject
+     * @param subscribeOn   事件源线程
+     * @param observeOn     观察者线程
+     * @param <T>
+     * @return
+     */
+    private <T> Observable<T> makeThread(Observable<T> subject,int subscribeOn,int observeOn){
+        if (subscribeOn == THREAD_MAIN){
+            subject.subscribeOn(AndroidSchedulers.mainThread());
+        }else if (subscribeOn == THREAD_IO){
+            subject.subscribeOn(Schedulers.io());
+        }
+        if (observeOn == THREAD_MAIN) {
+            subject.observeOn(AndroidSchedulers.mainThread());
+        }else if (observeOn == THREAD_IO) {
+            subject.observeOn(Schedulers.io());
+        }
+        return subject;
+    }
 
 
     //取消注册
@@ -149,12 +214,12 @@ public class RxBus {
                 maps.remove(tag);
             }
         }
-        Subject subject = singleMaps.get(tag);
-        if (subject == null)singleMaps.remove(tag);
+        data.remove(tag);
+        singleMaps.remove(tag);
     }
 
     //拉取data缓存里的延迟数据
-    private void getData(@NonNull Object tag){
+    public void getData(@NonNull Object tag){
         Object obj = data.get(tag);
         if (obj != null){
             post(tag,obj);
