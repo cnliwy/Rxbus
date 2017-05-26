@@ -84,7 +84,6 @@ public class RxBus {
                 callback.call(t);
             }
         });
-        subject = makeCallback(subject,callback);
         getData(tag);
         return subject;
     }
