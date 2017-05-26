@@ -56,7 +56,9 @@ public class MainActivity extends AppCompatActivity {
                 tvContent.setText(s);
             }
         });
-        // 线程切换的三种方式：
+        // 该例子的消息发送在RxbusActivity里43行发送的
+        // RxBus.getInstance().post(MainActivity.EVENT_IO_THREAD,"hello,i'm subthread!");
+        //  演示线程切换的三种方式：
         // 第一种：先获取Observable，然后设置事件生产和消费的线程，最后getData获取离线缓存消息
 //        observableIoThread = RxBus.getInstance().register(EVENT_IO_THREAD, String.class);
 //        observableIoThread.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<String>() {
