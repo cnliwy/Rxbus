@@ -140,21 +140,15 @@ public class RxBus {
      * 注册事件，可配置事件源和观察者的线程，并设置回调
      * @param tag           事件tag
      * @param clazz         数据类型
-     * @param subscribeOn  事件源线程 1主线程 2子线程
-     * @param observeOn    观察者线程 1主线程 2子线程
+     * @param subscribeOn  事件源线程
+     * @param observeOn    观察者线程
      * @param callback      事件回调
      * @param <T>
      * @return
      */
     public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
         Observable<T> subject = register(tag,clazz);
-        subject = makeThread(subject,subscribeOn,observeOn);
-        subject.subscribe(new Action1<T>() {
-            @Override
-            public void call(T t) {
-                callback.call(t);
-            }
-        });
+        subject = makeThreadCallback(subject,subscribeOn,observeOn,callback);
         getData(tag);
         return subject;
     }
@@ -166,7 +160,6 @@ public class RxBus {
                 callback.call(t);
             }
         });
-        subject = makeCallback(subject,callback);
         getData(tag);
         return subject;
     }
@@ -261,13 +254,7 @@ public class RxBus {
      */
     public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
         Observable<T> subject = registerSingle(tag,clazz);
-        subject = makeThread(subject,subscribeOn,observeOn);
-        subject.subscribe(new Action1<T>() {
-            @Override
-            public void call(T t) {
-                callback.call(t);
-            }
-        });
+        subject = makeThreadCallback(subject,subscribeOn,observeOn,callback);
         getData(tag);
         return subject;
     }
@@ -281,6 +268,50 @@ public class RxBus {
         });
         getData(tag);
         return subject;
+    }
+
+    /**
+     * 根据传入参数设置Observable的事件生产消费线程及回调事件
+     * @param subject
+     * @param subscribeOn 1主线程 2子线程
+     * @param observeOn    1主线程 2子线程
+     * @param callback
+     * @param <T>
+     * @return
+     */
+    public <T> Observable<T> makeThreadCallback(Observable<T> subject, int subscribeOn, int observeOn, final PostCallback<T> callback){
+        Scheduler main = AndroidSchedulers.mainThread();
+        Scheduler io = Schedulers.io();
+        if (subscribeOn == THREAD_MAIN && observeOn == THREAD_MAIN){
+            subject.subscribeOn(main).observeOn(main).subscribe(new Action1<T>() {
+                @Override
+                public void call(T t) {
+                    callback.call(t);
+                }
+            });
+        }else if (subscribeOn == THREAD_MAIN && observeOn == THREAD_IO){
+            subject.subscribeOn(main).observeOn(io).subscribe(new Action1<T>() {
+                @Override
+                public void call(T t) {
+                    callback.call(t);
+                }
+            });
+        }else if (subscribeOn == THREAD_IO && observeOn == THREAD_MAIN){
+            subject.subscribeOn(io).observeOn(main).subscribe(new Action1<T>() {
+                @Override
+                public void call(T t) {
+                    callback.call(t);
+                }
+            });
+        }else if (subscribeOn == THREAD_IO && observeOn == THREAD_IO){
+            subject.subscribeOn(io).observeOn(io).subscribe(new Action1<T>() {
+                @Override
+                public void call(T t) {
+                    callback.call(t);
+                }
+            });
+        }
+        return  subject;
     }
 
     /**
@@ -298,29 +329,6 @@ public class RxBus {
         });
         return subject;
     }
-
-    /**
-     * 设置Observable的线程
-     * @param subject
-     * @param subscribeOn   事件源线程
-     * @param observeOn     观察者线程
-     * @param <T>
-     * @return
-     */
-    private <T> Observable<T> makeThread(Observable<T> subject,int subscribeOn,int observeOn){
-        if (subscribeOn == THREAD_MAIN){
-            subject.subscribeOn(AndroidSchedulers.mainThread());
-        }else if (subscribeOn == THREAD_IO){
-            subject.subscribeOn(Schedulers.io());
-        }
-        if (observeOn == THREAD_MAIN) {
-            subject.observeOn(AndroidSchedulers.mainThread());
-        }else if (observeOn == THREAD_IO) {
-            subject.observeOn(Schedulers.io());
-        }
-        return subject;
-    }
-
 
     //取消注册
     public void unregister(@NonNull Object tag, @NonNull Observable observable){
@@ -403,7 +411,6 @@ public class RxBus {
         if (subject != null)subject.onNext(o);
     }
 }
-
 
 ```
 [源码及demo传送门](https://github.com/cnliwy/Rxbus)
