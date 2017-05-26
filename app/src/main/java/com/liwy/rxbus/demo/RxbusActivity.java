@@ -27,6 +27,7 @@ public class RxbusActivity extends AppCompatActivity {
         setContentView(R.layout.activity_rxbus);
         tvContent = (TextView)findViewById(R.id.tv_content_rxbus);
         sendBtn = (Button)findViewById(R.id.btn_rxbus);
+        System.out.println("RxbusActivity当前线程名称" + Thread.currentThread().getName());
         sendBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -34,6 +35,14 @@ public class RxbusActivity extends AppCompatActivity {
                 RxBus.getInstance().post(MainActivity.EVENT_MAIN,"hello,main,i'm RxbusActivity");
                 // 此时service观察者已注册，直接发送
                 RxBus.getInstance().post(EVENT_SERVICE,"hello,service,i'm RxbusActivity");
+                // 在子线程里发送数据
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("send当前线程名称" + Thread.currentThread().getName());
+                        RxBus.getInstance().post(MainActivity.EVENT_IO_THREAD,"hello,i'm subthread!");
+                    }
+                }).start();
                 // 根据注册类型对象直接发送数据
                 RxBus.getInstance().post(new User("李白",25,1));
                 finish();

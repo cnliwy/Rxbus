@@ -17,17 +17,18 @@ Rxbus当然是基于rxjava,实现的原理也是基于观察者模式。本次Rx
 **第一步：注册**
 ```
 注册分为两类方法：register()和registerSingle()两种方法，区别就是registerSingle是单例的，可保证全局唯一tag只有一个事件源。而register方法同一个tag可以注册多个观察者，在多处监听事件</br>
-注册方法总共两套八个：
+注册方法总共两套10个：
 public <T> Observable<T> register(@NonNull Object  obj);
 public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz);
 public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallback<T> callback);
 public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+ public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback)
 
 public <T> Observable<T> registerSingle(@NonNull Object  obj);
 public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz);
 public <T> Observable<T> registerSingle(@NonNull Object  obj, @NonNull final PostCallback<T> callback);
 public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
-
+ public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback)
 1）不需要切换线程也不需要拉取离线消息的可调用下面两个方法注册
 public <T> Observable<T> register(@NonNull Object  obj);
 public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz);
@@ -53,12 +54,15 @@ public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallb
                           }
    });
    
- 3）如果需要自定义事件源线程和观察者线程的请调用下面这两个注册方法：
+ 3）如果需要自定义事件源线程和观察者线程的请调用下面这四个注册方法：
 public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+ public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback)
 public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback);
+ public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback)
  
  用法如下：
  register("tag",String.class,2,1,callback);
+ 或者 register("tag",String.class,Schedulers.io(), AndroidSchedulers.mainThread(),callback);
  subscribeOn,observeOn这两个参数是int类型，subscribeOn表示事件源的线程 observeOn表示观察者的线程，1 表示主线程 2表示子线程
 ```
 
@@ -142,10 +146,28 @@ public class RxBus {
     public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
         Observable<T> subject = register(tag,clazz);
         subject = makeThread(subject,subscribeOn,observeOn);
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+        getData(tag);
+        return subject;
+    }
+    public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
+        Observable<T> subject = register(tag,clazz);
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
         subject = makeCallback(subject,callback);
         getData(tag);
         return subject;
     }
+
 
     /**
      * 根据传入数据对象注册事件
@@ -235,9 +257,25 @@ public class RxBus {
      * @return
      */
     public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
-        Observable<T> subject = register(tag,clazz);
+        Observable<T> subject = registerSingle(tag,clazz);
         subject = makeThread(subject,subscribeOn,observeOn);
-        subject = makeCallback(subject,callback);
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+        getData(tag);
+        return subject;
+    }
+    public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
+        Observable<T> subject = registerSingle(tag,clazz);
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
         getData(tag);
         return subject;
     }
@@ -362,6 +400,7 @@ public class RxBus {
         if (subject != null)subject.onNext(o);
     }
 }
+
 
 ```
 [源码传送门](https://github.com/cnliwy/Rxbus)

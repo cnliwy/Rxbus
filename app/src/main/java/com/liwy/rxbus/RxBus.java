@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import rx.Observable;
+import rx.Scheduler;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
@@ -66,10 +67,28 @@ public class RxBus {
     public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
         Observable<T> subject = register(tag,clazz);
         subject = makeThread(subject,subscribeOn,observeOn);
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+        getData(tag);
+        return subject;
+    }
+    public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
+        Observable<T> subject = register(tag,clazz);
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
         subject = makeCallback(subject,callback);
         getData(tag);
         return subject;
     }
+
 
     /**
      * 根据传入数据对象注册事件
@@ -159,9 +178,25 @@ public class RxBus {
      * @return
      */
     public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, int subscribeOn, int observeOn, final PostCallback<T> callback){
-        Observable<T> subject = register(tag,clazz);
+        Observable<T> subject = registerSingle(tag,clazz);
         subject = makeThread(subject,subscribeOn,observeOn);
-        subject = makeCallback(subject,callback);
+        subject.subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
+        getData(tag);
+        return subject;
+    }
+    public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
+        Observable<T> subject = registerSingle(tag,clazz);
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+            @Override
+            public void call(T t) {
+                callback.call(t);
+            }
+        });
         getData(tag);
         return subject;
     }
