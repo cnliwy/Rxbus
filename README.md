@@ -46,7 +46,7 @@ public <T> Observable<T> register(@NonNull Object  obj, @NonNull final PostCallb
                 System.out.println("data：" + s); 
             }
   });
-  其实设置PostCallback就相当于设置改观察者的Action1事件
+  其实设置PostCallback就相当于设置此观察者的Action1消费事件
   eventService.subscribe(new Action1<String>() {
                           @Override
                           public void call(String s) {
@@ -64,6 +64,9 @@ public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> c
  register("tag",String.class,2,1,callback);
  或者 register("tag",String.class,Schedulers.io(), AndroidSchedulers.mainThread(),callback);
  subscribeOn,observeOn这两个参数是int类型，subscribeOn表示事件源的线程 observeOn表示观察者的线程，1 表示主线程 2表示子线程
+ 
+ 4）如果对Observable的自定义要求比较的，可以只通过register(Object tag)或register(Object tag,Class<T> clazz)获取Observabke.
+ 然后事件的生产线程、消费线程在各个阶段的线程灵活配置，但是这种方式注册的Observable无法自动获取离线缓存消息，如果需要获取，调用RxBus.getInstance().getData(tag)方法即可。
 ```
 
 **第二步：发送**
