@@ -6,15 +6,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import rx.Observable;
-import rx.Scheduler;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
-import rx.subjects.PublishSubject;
-import rx.subjects.Subject;
+import io.reactivex.Observable;
+import io.reactivex.Scheduler;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.Subject;
 
-import static android.icu.lang.UCharacter.GraphemeClusterBreak.T;
 
 /**
  * Created by liwy on 2017/3/13.
@@ -74,9 +73,9 @@ public class RxBus {
     }
     public <T> Observable<T> register(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
         Observable<T> subject = register(tag,clazz);
-        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Consumer<T>() {
             @Override
-            public void call(T t) {
+            public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                 callback.call(t);
             }
         });
@@ -180,9 +179,9 @@ public class RxBus {
     }
     public <T> Observable<T> registerSingle(@NonNull Object tag, @NonNull Class<T> clazz, Scheduler subscribeOn, Scheduler observeOn, final PostCallback<T> callback){
         Observable<T> subject = registerSingle(tag,clazz);
-        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Action1<T>() {
+        subject.subscribeOn(subscribeOn).observeOn(observeOn).subscribe(new Consumer<T>() {
             @Override
-            public void call(T t) {
+            public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                 callback.call(t);
             }
         });
@@ -203,30 +202,30 @@ public class RxBus {
         Scheduler main = AndroidSchedulers.mainThread();
         Scheduler io = Schedulers.io();
         if (subscribeOn == THREAD_MAIN && observeOn == THREAD_MAIN){
-            subject.subscribeOn(main).observeOn(main).subscribe(new Action1<T>() {
+            subject.subscribeOn(main).observeOn(main).subscribe(new Consumer<T>() {
                 @Override
-                public void call(T t) {
+                public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                     callback.call(t);
                 }
             });
         }else if (subscribeOn == THREAD_MAIN && observeOn == THREAD_IO){
-            subject.subscribeOn(main).observeOn(io).subscribe(new Action1<T>() {
+            subject.subscribeOn(main).observeOn(io).subscribe(new Consumer<T>() {
                 @Override
-                public void call(T t) {
+                public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                     callback.call(t);
                 }
             });
         }else if (subscribeOn == THREAD_IO && observeOn == THREAD_MAIN){
-            subject.subscribeOn(io).observeOn(main).subscribe(new Action1<T>() {
+            subject.subscribeOn(io).observeOn(main).subscribe(new Consumer<T>() {
                 @Override
-                public void call(T t) {
+                public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                     callback.call(t);
                 }
             });
         }else if (subscribeOn == THREAD_IO && observeOn == THREAD_IO){
-            subject.subscribeOn(io).observeOn(io).subscribe(new Action1<T>() {
+            subject.subscribeOn(io).observeOn(io).subscribe(new Consumer<T>() {
                 @Override
-                public void call(T t) {
+                public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                     callback.call(t);
                 }
             });
@@ -241,9 +240,9 @@ public class RxBus {
      * @param <T>
      */
     private <T> Observable<T> makeCallback(Observable<T> subject, final PostCallback<T> callback){
-        subject.subscribe(new Action1<T>() {
+        subject.subscribe(new Consumer<T>() {
             @Override
-            public void call(T t) {
+            public void accept(@io.reactivex.annotations.NonNull T t) throws Exception {
                 callback.call(t);
             }
         });
